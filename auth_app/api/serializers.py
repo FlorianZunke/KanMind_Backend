@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from rest_framework import serializers
+from django.contrib.auth import authenticate
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
     repeated_password = serializers.CharField(write_only=True)
-
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'repeated_password']
@@ -28,3 +29,33 @@ class RegistrationSerializer(serializers.ModelSerializer):
         account.set_password(pw)
         account.save()
         return account
+    
+
+class EmailLoginSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    class Meta:
+        model = User
+        fields = ['email', 'password']
+        extra_kwargs = {
+            'password': {
+                'write_only': True
+            }
+        }
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid email or password")
+
+        user = authenticate(username=user.username, password=password)
+
+        if user is None:
+            raise serializers.ValidationError("Invalid email or password")
+
+        data['user'] = user
+        return data
