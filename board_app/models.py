@@ -15,16 +15,16 @@ class Board(models.Model):
         return self.members.count()
 
     @property
-    def ticket_count(self):
-        return self.tickets.count()
+    def task_count(self):
+        return self.task.count()
 
     @property
     def tasks_to_do_count(self):
-        return self.tickets.filter(status='todo').count()
+        return self.task.filter(status='todo').count()
 
     @property
     def tasks_high_prio_count(self):
-        return self.tickets.filter(priority='high').count()
+        return self.task.filter(priority='high').count()
 
 
 
