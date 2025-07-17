@@ -15,16 +15,16 @@ class Board(models.Model):
         return self.members.count()
 
     @property
-    def task_count(self):
-        return self.task.count()
+    def tasks_count(self):
+        return self.tasks.count()
 
     @property
     def tasks_to_do_count(self):
-        return self.task.filter(status='todo').count()
+        return self.tasks.filter(status='todo').count()
 
     @property
     def tasks_high_prio_count(self):
-        return self.task.filter(priority='high').count()
+        return self.tasks.filter(priority='high').count()
 
 
 
@@ -41,7 +41,7 @@ class Task(models.Model):
         ('high', 'High'),
     ]
 
-    board = models.ForeignKey(Board, on_delete=models.CASCADE)
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=255)
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
