@@ -1,5 +1,5 @@
 from board_app.models import Board
-from .serializers import BoardSerializer
+from .serializers import BoardSerializer, BoardDetailSerializer
 from .permissions import IsOwnerOrMember, IsAuthenticated
 from rest_framework.generics import RetrieveAPIView
 from rest_framework import generics
@@ -20,4 +20,5 @@ class BoardViewSet(generics.ListCreateAPIView):
 
 class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Board.objects.all()
-    serializer_class = BoardSerializer
+    serializer_class = BoardDetailSerializer
+    permission_classes = [IsOwnerOrMember, IsAuthenticated]
