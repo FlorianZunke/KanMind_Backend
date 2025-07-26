@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from kanban_app.models import Board
 from ..models import User, Task
+from django.core.validators import EmailValidator
 
 class BoardSerializer(serializers.ModelSerializer):
     member_count = serializers.IntegerField(read_only=True)
@@ -29,9 +30,9 @@ class BoardSerializer(serializers.ModelSerializer):
         members = validated_data.pop('members', [])
         board = Board.objects.create(**validated_data)
         board.members.set(members)
-        board.members.add(self.context['request'].user)  # <-- fügt hinzu, wenn noch nicht drin, ignoriert doppelte
+        board.members.add(self.context['request'].user)
         return board
-    
+     
 class MiniUserSerializer(serializers.ModelSerializer):
     fullname = serializers.SerializerMethodField()
     class Meta:
@@ -123,3 +124,27 @@ class BoardDetailSerializer(serializers.ModelSerializer):
             instance.members.set(member_ids)
 
         return instance
+    
+
+class TaskDetailSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Task
+        fields = [
+            'id', 
+            'title', 
+            'description', 
+            'status',
+            'priority', 
+            'due_date'
+        ]
+
+class EmailCheckSerializer(serializers.Serializer):
+    email = serializers.EmailField(
+        validators=[EmailValidator()],
+        required=True,
+        error_messages={
+            "required": "Bitte gib eine E-Mail-Adresse an.",
+            "invalid": "Ungültiges Format. Bitte eine gültige E-Mail-Adresse angeben."
+        }
+    )

@@ -1,11 +1,13 @@
 from kanban_app.models import Board
-from .serializers import BoardSerializer, BoardDetailSerializer, MiniUserSerializer, TaskSerializer
-from .permissions import IsOwnerOrMember, IsAuthenticated, IsAssignee
+from .serializers import BoardSerializer, BoardDetailSerializer, MiniUserSerializer, TaskSerializer, EmailCheckSerializer, TaskDetailSerializer
+from .permissions import IsOwnerOrMember, IsAuthenticated, IsAssignee, IsReviewer
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from ..models import User, Task
+from django.core.validators import EmailValidator
+from django.core.exceptions import ValidationError
 
 
     
@@ -39,22 +41,23 @@ class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class CheckMailView(APIView):
     permission_classes = [IsAuthenticated]
-
+    
     def get(self, request):
-        email = request.query_params.get('email')
+        serializer = EmailCheckSerializer(data=request.query_params)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if not email:
-            return Response({"detail": "Ungültige Anfrage. Die E-Mail-Adresse fehlt oder hat ein falsches Format."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if '@' not in email or '.' not in email:
-            return Response({"detail": "Ungültige Anfrage. Die E-Mail-Adresse fehlt oder hat ein falsches Format."}, status=status.HTTP_400_BAD_REQUEST)
-        
+        email = serializer.validated_data['email']
+
         try:
             user = User.objects.get(email=email)
             data = MiniUserSerializer(user).data
             return Response(data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
-            return Response({"detail": "E-Mail nicht gefunden."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "E-Mail nicht gefunden."},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
 
 class TaskViewSet(generics.ListCreateAPIView):
@@ -85,6 +88,23 @@ class TaskViewSet(generics.ListCreateAPIView):
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+    #Muss die Permission IsOwnerOrMember noch integrieren und brauche den ersteller des Tasks
+class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Task.objects.all()
+    serializer_class = TaskDetailSerializer
+    permission_classes = [IsAssignee | IsReviewer ,IsAuthenticated]
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
+    def delete(self, request, *args, **kwargs):
+        task = self.get_object()
+
+        if request.user != task.reviewer:
+            return Response({"detail": "Nur der Besitzer darf diesen Task löschen."}, status=status.HTTP_403_FORBIDDEN)
+
+        task.delete()
+        return Response({"detail": "Der TAsk wurde erfolgreich gelöscht."}, status=status.HTTP_204_NO_CONTENT)
 
 class AssignedDetailView(generics.ListAPIView):
     serializer_class = TaskSerializer
