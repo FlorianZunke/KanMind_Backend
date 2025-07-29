@@ -62,6 +62,7 @@ class TaskSerializer(serializers.ModelSerializer):
         required=False
     )
 
+    author = MiniUserSerializer(read_only=True)
     assignee = MiniUserSerializer(source='assigned_to', read_only=True)
     reviewer = MiniUserSerializer(read_only=True)
     comments_count = serializers.SerializerMethodField()
@@ -79,11 +80,30 @@ class TaskSerializer(serializers.ModelSerializer):
             'reviewer_id',
             'reviewer',
             'due_date',
-            'comments_count'
+            'comments_count',
+            'author'
         ]
 
     def get_comments_count(self, obj):
         return obj.comments.count() if hasattr(obj, 'comments') else 0
+    
+    def validate(self, data):
+        request = self.context['request']
+        user = request.user
+        board = data.get('board')
+
+        if not board:
+            raise serializers.ValidationError({"board": "Board ist erforderlich."})
+
+        if not (user == board.owner or user in board.members.all()):
+            raise serializers.ValidationError({"detail": "Zugriff verweigert. Du bist kein Mitglied dieses Boards."})
+
+        return data
+    
+    def create(self, validated_data):
+        request = self.context['request']
+        validated_data['author'] = request.user
+        return super().create(validated_data)
     
 
 class BoardDetailSerializer(serializers.ModelSerializer):
@@ -135,8 +155,8 @@ class TaskDetailSerializer(serializers.ModelSerializer):
             'title', 
             'description', 
             'status',
-            'priority', 
-            'due_date'
+            'priority',
+            'due_date',
         ]
 
 class EmailCheckSerializer(serializers.Serializer):
@@ -148,3 +168,12 @@ class EmailCheckSerializer(serializers.Serializer):
             "invalid": "Ungültiges Format. Bitte eine gültige E-Mail-Adresse angeben."
         }
     )
+
+    def validate_email(self, value):
+        try:
+            user = User.objects.get(email=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("E-Mail nicht gefunden.")
+        
+        self.user = user
+        return value
