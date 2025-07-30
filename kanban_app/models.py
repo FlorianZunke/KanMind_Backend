@@ -54,7 +54,8 @@ class Task(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='tasks_creater')
+        related_name='tasks_creater',
+        null=False)
 
     def __str__(self):
       return self.title

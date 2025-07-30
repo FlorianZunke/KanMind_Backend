@@ -18,9 +18,9 @@ class RegistrationView(APIView):
             data = {
                 'user_id': saved_account.id,
                 'token': token.key,
-                'username': saved_account.username,
+                'fullname': saved_account.username,
                 'email': saved_account.email,
-            }
+}
             return Response(data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -39,7 +39,7 @@ class CustomLoginView(ObtainAuthToken):
             data = {
                 'token': token.key,
                 'user_id': user.id,
-                'username': user.username,
+                'fullname': user.username,
                 'email': user.email,
             }
             return Response(data, status=status.HTTP_200_OK)

@@ -6,9 +6,10 @@ from django.contrib.auth import authenticate
 
 class RegistrationSerializer(serializers.ModelSerializer):
     repeated_password = serializers.CharField(write_only=True)
+    fullname = serializers.CharField()
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'repeated_password']
+        fields = ['fullname', 'email', 'password', 'repeated_password']
         extra_kwargs = {
             'password': {
                 'write_only': True
@@ -21,11 +22,14 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
         if pw != repeated_pw:
             raise serializers.ValidationError({'error': 'passwords dont match'})
-        
-        if User.objects.filter(email=self.validated_data['email']).exists():
-            raise serializers.ValidationError({'error':'Email already exists'})
 
-        account = User(email=self.validated_data['email'], username=self.validated_data['username'])
+        if User.objects.filter(email=self.validated_data['email']).exists():
+            raise serializers.ValidationError({'error': 'Email already exists'})
+
+        account = User(
+            email=self.validated_data['email'],
+            username=self.validated_data['fullname'],
+        )
         account.set_password(pw)
         account.save()
         return account
