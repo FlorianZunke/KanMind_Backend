@@ -1,16 +1,11 @@
-from kanban_app.models import Board
-from .serializers import BoardSerializer, BoardDetailSerializer, MiniUserSerializer, TaskSerializer, EmailCheckSerializer, TaskDetailSerializer
-from .permissions import IsOwnerOrMember, IsAuthenticated, TaskDetailPermission, IsOwnerAndDeleteOnly
+from kanban_app.models import Board, Comment, User, Task
+from .serializers import BoardSerializer, BoardDetailSerializer, MiniUserSerializer, TaskSerializer, EmailCheckSerializer, TaskDetailSerializer, CommentSerializer
+from .permissions import IsOwnerOrMember, IsAuthenticated, TaskDetailPermission, IsOwnerAndDeleteOnly, CommentPermission
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from ..models import User, Task
-from django.core.validators import EmailValidator
-from django.core.exceptions import ValidationError
 
-
-    
 class BoardViewSet(generics.ListCreateAPIView):
     serializer_class = BoardSerializer
     permission_classes = [IsOwnerOrMember, IsAuthenticated]
@@ -84,5 +79,19 @@ class ReviewerDetailView(generics.ListAPIView):
         return Task.objects.filter(reviewer=self.request.user)
 
 
-class CommentView(generics.RetrieveUpdateDestroyAPIView):
-    pass
+
+#Noch zusammenfassen funktioniert momentan noch nicht
+class CommentCreateView(generics.CreateAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['task_id'] = self.kwargs.get('task_id')
+        return context
+
+
+class CommentDetailView(generics.RetrieveDestroyAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [CommentPermission, IsAuthenticated]

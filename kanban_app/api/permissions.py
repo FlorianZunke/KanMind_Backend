@@ -27,3 +27,15 @@ class TaskDetailPermission(BasePermission):
             return user == obj.author or user == obj.board.owner
 
         return False
+    
+class CommentPermission(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+
+        if request.method in SAFE_METHODS:
+            return user == obj.task.board.owner or user in obj.task.board.members.all()
+
+        elif request.method == 'DELETE':
+            return user == obj.author
+
+        return False
