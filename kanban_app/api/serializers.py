@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from kanban_app.models import Board, Comment, User, Task
 from django.core.validators import EmailValidator
 from django.shortcuts import get_object_or_404
+
+from kanban_app.models import Board, Comment, User, Task
 
 
 class BoardSerializer(serializers.ModelSerializer):
@@ -13,7 +14,6 @@ class BoardSerializer(serializers.ModelSerializer):
     members = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
-        # write_only=True
     )
 
     class Meta:
@@ -188,7 +188,7 @@ class TaskDetailSerializer(serializers.ModelSerializer):
             'due_date',
         ]
 
-class EmailCheckSerializer(serializers.Serializer):
+class EmailCheckSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         validators=[EmailValidator()],
         required=True,
@@ -221,12 +221,11 @@ class CommentSerializer(serializers.ModelSerializer):
         user = request.user
 
         task = get_object_or_404(Task, id=task_id)
-
-        # Zugriff prüfen
+        
         if user != task.board.owner and user not in task.board.members.all():
             raise serializers.ValidationError("Du bist kein Mitglied dieses Boards.")
 
-        self.task = task  # speichern für späteres create()
+        self.task = task
 
         return data
 

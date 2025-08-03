@@ -1,10 +1,12 @@
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
+
 from kanban_app.models import Board, Comment, User, Task
 from .serializers import BoardSerializer, BoardDetailSerializer, MiniUserSerializer, TaskSerializer, EmailCheckSerializer, TaskDetailSerializer, CommentSerializer
 from .permissions import IsOwnerOrMember, IsAuthenticated, TaskDetailPermission, IsOwnerAndDeleteOnly, CommentPermission
-from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.views import APIView
 
 class BoardViewSet(generics.ListCreateAPIView):
     serializer_class = BoardSerializer
@@ -79,19 +81,35 @@ class ReviewerDetailView(generics.ListAPIView):
         return Task.objects.filter(reviewer=self.request.user)
 
 
-
-#Noch zusammenfassen funktioniert momentan noch nicht
-class CommentCreateView(generics.CreateAPIView):
+class CommentViewSet(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        task_id = self.kwargs.get('task_id')
+        task = get_object_or_404(Task, id=task_id)
+        user = self.request.user
+
+        if user != task.board.owner and user not in task.board.members.all():
+            raise PermissionDenied("Du bist kein Mitglied dieses Boards.")
+
+        return Comment.objects.filter(task=task).order_by('-created_at')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['task_id'] = self.kwargs.get('task_id')
         return context
 
-
 class CommentDetailView(generics.RetrieveDestroyAPIView):
-    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [CommentPermission, IsAuthenticated]
+    permission_classes = [IsAuthenticated, CommentPermission]
+
+    def get_object(self):
+        comment_id = self.kwargs.get('comment_id')
+        comment = get_object_or_404(Comment, id=comment_id)
+        user = self.request.user
+
+        if user != comment.task.board.owner and user not in comment.task.board.members.all():
+            raise PermissionDenied("Du bist kein Mitglied dieses Boards.")
+
+        return comment

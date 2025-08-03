@@ -14,6 +14,13 @@ class IsOwnerAndDeleteOnly(BasePermission):
      
      
 class TaskDetailPermission(BasePermission):
+    """
+    Permissions for tasks:
+    - Can be read by all board members
+    - Can only be edited by the rewiver and assignee
+    - Can only be deleted by the task`s creator and the board owner
+    """
+
     def has_object_permission(self, request, view, obj):
         user = request.user
 
@@ -29,6 +36,11 @@ class TaskDetailPermission(BasePermission):
         return False
     
 class CommentPermission(BasePermission):
+    """
+    Permissions for comments:
+    - Can be read by all board members (including the board owner)
+    - Can only be deleted by the comment's author
+    """
     def has_object_permission(self, request, view, obj):
         user = request.user
 

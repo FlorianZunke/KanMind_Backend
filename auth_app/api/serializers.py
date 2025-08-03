@@ -1,10 +1,13 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from rest_framework import serializers
 from django.contrib.auth import authenticate
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for registering a new user.
+    Validates that both password fields match and that the email is unique.
+    """
     repeated_password = serializers.CharField(write_only=True)
     fullname = serializers.CharField()
     class Meta:
