@@ -167,7 +167,8 @@ class TaskSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class BoardDetailSerializer(serializers.ModelSerializer):
+class BoardDetailReadSerializer(serializers.ModelSerializer):
+    owner_id = serializers.IntegerField(read_only=True)
     members = MiniUserSerializer(many=True, read_only=True)
     tasks = TaskSerializer(many=True, read_only=True)
 
@@ -178,36 +179,57 @@ class BoardDetailSerializer(serializers.ModelSerializer):
             'title',
             'owner_id',
             'members',
-            'tasks'
+            'tasks',
         ]
 
     
+class BoardDetailWriteSerializer(serializers.ModelSerializer):
+    owner_data = MiniUserSerializer(source='owner',read_only=True)
+    members_data = MiniUserSerializer(source='members',many=True, read_only=True)
+    members = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        many=True,
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        model = Board
+        fields = [
+            'id',
+            'title',
+            'owner_data',
+            'members_data',
+            'members',
+        ]
+
     def update(self, instance, validated_data):
         """
         Update an existing Board instance with the provided validated data.
 
-        Handles updating the title and optionally the members of the board.
-        Ensures that the owner is always included in the members list.
+        - Updates the board's title if a new title is provided.
+        - Optionally updates the board's member list based on the provided PK list.
+        - Ensures that the board owner is always included in the members.
 
         Args:
-            instance (Board): The existing Board instance to update.
-            validated_data (dict): The validated data containing updated fields.
+            instance (Board): The Board instance to be updated.
+            validated_data (dict): The validated input data, potentially including:
+                - 'title' (str): The new title for the board.
+                - 'members' (list of User): The list of User instances to set as members.
 
         Returns:
-            Board: The updated Board instance.
+            Board: The updated Board instance with its title and members updated.
         """
         members = validated_data.pop('members', None)
         instance.title = validated_data.get('title', instance.title)
         instance.save()
 
         if members is not None:
-            member_ids = [user.id for user in members]
-            if instance.owner.id not in member_ids:
-                member_ids.append(instance.owner.id)
-            instance.members.set(member_ids)
+            if instance.owner not in members:
+                members.append(instance.owner)
+            instance.members.set(members)
 
         return instance
-
 
 class TaskDetailSerializer(serializers.ModelSerializer):
     assignee_id = serializers.PrimaryKeyRelatedField(
@@ -275,7 +297,7 @@ class EmailCheckSerializer(serializers.Serializer):
     
 class CommentSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField(read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
+    created_at = serializers.DateField(read_only=True)
 
     class Meta:
         model = Comment

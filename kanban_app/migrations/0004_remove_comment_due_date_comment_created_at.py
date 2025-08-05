@@ -17,6 +17,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='comment',
             name='created_at',
-            field=models.DateTimeField(null=True),
+            field=models.DateField(null=True),
         ),
     ]
