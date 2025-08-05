@@ -9,7 +9,7 @@ from kanban_app.models import Board, Comment, User, Task
 
 class BoardSerializer(serializers.ModelSerializer):
     member_count = serializers.IntegerField(read_only=True)
-    tasks_count = serializers.IntegerField(read_only=True)
+    ticket_count = serializers.IntegerField(read_only=True)
     tasks_to_do_count = serializers.IntegerField(read_only=True)
     tasks_high_prio_count = serializers.IntegerField(read_only=True)
     owner_id = serializers.IntegerField(read_only=True)
@@ -26,7 +26,7 @@ class BoardSerializer(serializers.ModelSerializer):
             'title',
             'members',
             'member_count',
-            'tasks_count',
+            'ticket_count',
             'tasks_to_do_count',
             'tasks_high_prio_count',
             'owner_id'

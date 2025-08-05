@@ -16,7 +16,7 @@ class Board(models.Model):
         return self.members.count()
 
     @property
-    def tasks_count(self):
+    def ticket_count(self):
         return self.tasks.count()
 
     @property
