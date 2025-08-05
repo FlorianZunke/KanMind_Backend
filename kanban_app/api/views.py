@@ -27,11 +27,14 @@ class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BoardDetailSerializer
     permission_classes = [IsOwnerAndDeleteOnly, IsOwnerOrMember, IsAuthenticated]
 
-    def get_queryset(self):
+    def get_object(self):
+        board = get_object_or_404(Board, pk=self.kwargs['pk'])
         user = self.request.user
-        owner = Board.objects.filter(owner=user)
-        member = Board.objects.filter(members=user)
-        return (owner | member).distinct()
+
+        if not (user == board.owner or user in board.members.all()):
+            raise PermissionDenied("Du bist nicht berechtigt, dieses Board zu sehen.")
+
+        return board
 
     def get_serializer_context(self):
         return {'request': self.request}

@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.core.validators import EmailValidator
 from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import NotFound, PermissionDenied
+
 
 from kanban_app.models import Board, Comment, User, Task
 
@@ -12,8 +14,9 @@ class BoardSerializer(serializers.ModelSerializer):
     tasks_high_prio_count = serializers.IntegerField(read_only=True)
     owner_id = serializers.IntegerField(read_only=True)
     members = serializers.PrimaryKeyRelatedField(
-        many=True,
         queryset=User.objects.all(),
+        many=True,
+        write_only=True
     )
 
     class Meta:
@@ -29,7 +32,21 @@ class BoardSerializer(serializers.ModelSerializer):
             'owner_id'
         ]
 
+    
     def create(self, validated_data):
+        """
+        Create and return a new Board instance, given the validated data.
+
+        This method handles the creation of the Board object and sets the members 
+        based on the provided input. Additionally, it ensures that the current 
+        authenticated user (from the request context) is added as a member of the board.
+
+        Args:
+            validated_data (dict): The validated data from the serializer input.
+
+        Returns:
+            Board: The newly created Board instance with members set.
+        """
         members = validated_data.pop('members', [])
         board = Board.objects.create(**validated_data)
         board.members.set(members)
@@ -70,6 +87,7 @@ class TaskSerializer(serializers.ModelSerializer):
     assignee = MiniUserSerializer(source='assigned_to', read_only=True)
     reviewer = MiniUserSerializer(read_only=True)
     comments_count = serializers.SerializerMethodField()
+    
 
     class Meta:
         model = Task
@@ -88,42 +106,70 @@ class TaskSerializer(serializers.ModelSerializer):
             'comments_count',
         ]
 
+    
     def get_comments_count(self, obj):
-        return obj.comments.count() if hasattr(obj, 'comments') else 0
+        """
+        Return the count of comments related to the given object.
 
+        Args:
+            obj (Model instance): The instance (e.g., a Task) for which comments are counted.
+
+        Returns:
+            int: Number of comments if the 'comments' related manager exists, otherwise 0.
+        """
+        return obj.comments.count() if hasattr(obj, 'comments') else 0
+    
+
+    
     def validate(self, data):
+        """
+        Validate the incoming data to ensure the user has permission to access the related board.
+
+        Checks that:
+        - The board field is present in the data.
+        - The requesting user is either the owner or a member of the board.
+
+        Args:
+            data (dict): The deserialized input data.
+
+        Raises:
+            NotFound: If the board is not provided.
+            PermissionDenied: If the user is not a member or owner of the board.
+
+        Returns:
+            dict: The validated data unchanged if all checks pass.
+        """
         request = self.context['request']
         user = request.user
         board = data.get('board')
 
         if not board:
-            raise serializers.ValidationError(
-                {"board": "Board ist erforderlich."})
+            raise NotFound(detail="Board ist erforderlich.")
 
         if not (user == board.owner or user in board.members.all()):
-            raise serializers.ValidationError(
-                {"detail": "Zugriff verweigert. Du bist kein Mitglied dieses Boards."})
+            raise PermissionDenied(detail= "Zugriff verweigert. Du bist kein Mitglied dieses Boards.")
 
         return data
 
+    
     def create(self, validated_data):
+        """
+        Create and return a new Task instance, setting the author to the current user.
+
+        Args:
+            validated_data (dict): The validated data from the serializer input.
+
+        Returns:
+            Task: The newly created Task instance.
+        """
         request = self.context['request']
         validated_data['author'] = request.user
         return super().create(validated_data)
 
 
 class BoardDetailSerializer(serializers.ModelSerializer):
-    members = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), many=True, write_only=True, required=False
-    )
-    members_data = MiniUserSerializer(
-        source='members', many=True, read_only=True)
-    owner_data = MiniUserSerializer(source='owner', read_only=True)
+    members = MiniUserSerializer(many=True, read_only=True)
     tasks = TaskSerializer(many=True, read_only=True)
-    member_count = serializers.ReadOnlyField()
-    tasks_count = serializers.ReadOnlyField()
-    tasks_to_do_count = serializers.ReadOnlyField()
-    tasks_high_prio_count = serializers.ReadOnlyField()
 
     class Meta:
         model = Board
@@ -132,17 +178,24 @@ class BoardDetailSerializer(serializers.ModelSerializer):
             'title',
             'owner_id',
             'members',
-            'members_data',
-            'owner_data',
-            'member_count',
-            'tasks_count',
-            'tasks_to_do_count',
-            'tasks_high_prio_count',
             'tasks'
         ]
 
+    
+    def update(self, instance, validated_data):
+        """
+        Update an existing Board instance with the provided validated data.
 
-def update(self, instance, validated_data):
+        Handles updating the title and optionally the members of the board.
+        Ensures that the owner is always included in the members list.
+
+        Args:
+            instance (Board): The existing Board instance to update.
+            validated_data (dict): The validated data containing updated fields.
+
+        Returns:
+            Board: The updated Board instance.
+        """
         members = validated_data.pop('members', None)
         instance.title = validated_data.get('title', instance.title)
         instance.save()
@@ -188,17 +241,30 @@ class TaskDetailSerializer(serializers.ModelSerializer):
             'due_date',
         ]
 
-class EmailCheckSerializer(serializers.ModelSerializer):
+class EmailCheckSerializer(serializers.Serializer):
+
     email = serializers.EmailField(
         validators=[EmailValidator()],
         required=True,
         error_messages={
-            "required": "Bitte gib eine E-Mail-Adresse an.",
             "invalid": "Ungültiges Format. Bitte eine gültige E-Mail-Adresse angeben."
         }
     )
 
+    
     def validate_email(self, value):
+        """
+        Validate that the given email exists in the User model.
+
+        Args:
+            value (str): The email address to validate.
+
+        Raises:
+            serializers.ValidationError: If no user with the given email exists.
+
+        Returns:
+            str: The validated email address.
+        """
         try:
             user = User.objects.get(email=value)
         except User.DoesNotExist:
@@ -215,7 +281,22 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ['id', 'created_at', 'author', 'content']
 
+    
     def validate(self, data):
+        """
+        Validate that the current user is a member or owner of the task's board.
+
+        Raises a ValidationError if the user is not part of the board.
+
+        Also retrieves the Task instance based on the task_id from the context
+        and stores it on the serializer instance for later use in creation.
+
+        Args:
+            data (dict): The data to validate.
+
+        Returns:
+            dict: The validated data.
+        """
         request = self.context['request']
         task_id = self.context.get('task_id')
         user = request.user
@@ -228,8 +309,17 @@ class CommentSerializer(serializers.ModelSerializer):
         self.task = task
 
         return data
-
+    
     def create(self, validated_data):
+        """
+        Create a new instance with the current user as author and the validated task.
+
+        Args:
+            validated_data (dict): The validated data for creating the object.
+
+        Returns:
+            Model instance: The newly created model instance.
+        """
         validated_data['author'] = self.context['request'].user
         validated_data['task'] = self.task
         return super().create(validated_data)

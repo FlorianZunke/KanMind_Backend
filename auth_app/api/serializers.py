@@ -10,6 +10,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     """
     repeated_password = serializers.CharField(write_only=True)
     fullname = serializers.CharField()
+
     class Meta:
         model = User
         fields = ['fullname', 'email', 'password', 'repeated_password']
@@ -20,6 +21,24 @@ class RegistrationSerializer(serializers.ModelSerializer):
         }
 
     def save(self):
+        """
+        Creates a new User instance after validating the input data.
+
+        Checks if the provided password and repeated password match.
+        Raises a ValidationError if they don't.
+
+        Checks if a user with the given email already exists.
+        Raises a ValidationError if the email is already taken.
+
+        If validations pass, creates a new User object with the given email and fullname,
+        sets the password securely, saves the user, and returns the user instance.
+
+        Returns:
+            User: The newly created user instance.
+
+        Raises:
+            serializers.ValidationError: If passwords don't match or email already exists.
+        """
         pw = self.validated_data['password']
         repeated_pw = self.validated_data['repeated_password']
 
@@ -51,6 +70,26 @@ class EmailLoginSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
+        """
+        Validates the provided email and password.
+
+        - Checks if a user with the given email exists.
+        Raises a ValidationError if no user is found.
+
+        - Authenticates the user using the username and password.
+        Raises a ValidationError if authentication fails.
+
+        - Adds the authenticated user to the validated data.
+
+        Args:
+            data (dict): Input data containing 'email' and 'password'.
+
+        Returns:
+            dict: The validated data including the authenticated 'user'.
+
+        Raises:
+            serializers.ValidationError: If the email does not exist or the password is incorrect.
+        """
         email = data.get('email')
         password = data.get('password')
         
